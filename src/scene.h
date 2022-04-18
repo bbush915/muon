@@ -24,4 +24,8 @@ const Scene *scene__cornell_box__build(MemoryArena *p_memory_arena);
 
 const Scene *scene__final_rt_next_week__build(MemoryArena *p_memory_arena);
 
+const Scene *scene__waves__build(MemoryArena *p_memory_arena);
+
+const Scene *scene__planets__build(MemoryArena *p_memory_arena);
+
 #endif

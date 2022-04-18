@@ -393,3 +393,130 @@ const Scene *scene__final_rt_next_week__build(MemoryArena *p_memory_arena) {
 
   return p_scene;
 }
+
+const Scene *scene__waves__build(MemoryArena *p_memory_arena) {
+  Scene *p_scene = (Scene *)memory_arena__allocate(p_memory_arena, sizeof(Scene));
+
+  p_scene->aspect_ratio = 1.0;
+  p_scene->height = 600;
+  p_scene->width = (int)(p_scene->height * p_scene->aspect_ratio);
+  p_scene->samples_per_pixel = 100;
+  p_scene->max_depth = 50;
+  p_scene->background_color = (C3){1, 1, 1};
+
+  // NOTE - Camera
+
+  const P3 look_from = (P3){20.0, 12.5, -20.0};
+  const P3 look_at = (P3){0.0, 0.0, 0.0};
+  const V3 view_up = (V3){0.0, 1.0, 0.0};
+  const double vertical_field_of_view = 40.0;
+  const double aperture = 0.0;
+  const double focus_length = 10.0;
+  const double time_start = 0.0;
+  const double time_finish = 1.0;
+
+  const Camera *p_camera =
+      camera__build(p_memory_arena, look_from, look_at, view_up, vertical_field_of_view,
+                    p_scene->aspect_ratio, aperture, focus_length, time_start, time_finish);
+
+  p_scene->p_camera = p_camera;
+
+  // NOTE - Hittables
+
+  const Material *p_base_material =
+      material__metal__build(p_memory_arena, (C3){0.85, 0.85, 0.85}, 0.0);
+  const Hittable *p_base_rectangle =
+      hittable__xz_rectangle__build(p_memory_arena, -12.5, 12.5, -12.5, 12.5, 0.0, p_base_material);
+
+  const double step_size = 0.25;
+  const int step_count = (int)(20.0 / step_size);
+
+  DynamicArray *p_spheres =
+      dynamic_array__build(p_memory_arena, sizeof(Hittable *), step_count * step_count);
+
+  for (int i = 0; i < step_count; i++) {
+    for (int j = 0; j < step_count; j++) {
+      const double x = -10 + i * step_size;
+      const double z = -10 + j * step_size;
+      const double y = 3.5 + 1.5 * sin(x) * cos(z);
+
+      const Material *p_material = material__dialectric__build(p_memory_arena, 1.5);
+
+      const Hittable *p_sphere =
+          hittable__sphere__build(p_memory_arena, (P3){x, y, z}, step_size, p_material);
+
+      dynamic_array__push(p_spheres, (void *)&p_sphere);
+    }
+  }
+
+  const int hittable_count = 1 + p_spheres->item_count;
+  const Hittable **pp_hittables = (const Hittable **)memory_arena__allocate(
+      p_memory_arena, hittable_count * sizeof(Hittable *));
+
+  pp_hittables[0] = p_base_rectangle;
+
+  for (int i = 0; i < p_spheres->item_count; i++) {
+    pp_hittables[1 + i] = *(Hittable **)dynamic_array__at(p_spheres, i);
+  }
+
+  const Hittable *p_hittable_bvh = hittable__bounding_volume_hierarchy__build(
+      p_memory_arena, pp_hittables, hittable_count, 0, hittable_count, 0.0, 1.0);
+
+  p_scene->p_hittables = p_hittable_bvh;
+
+  return p_scene;
+}
+
+const Scene *scene__planets__build(MemoryArena *p_memory_arena) {
+  Scene *p_scene = (Scene *)memory_arena__allocate(p_memory_arena, sizeof(Scene));
+
+  p_scene->aspect_ratio = 1.0;
+  p_scene->height = 600;
+  p_scene->width = (int)(p_scene->height * p_scene->aspect_ratio);
+  p_scene->samples_per_pixel = 100;
+  p_scene->max_depth = 50;
+  p_scene->background_color = (C3){0, 0, 0};
+
+  // NOTE - Camera
+
+  const P3 look_from = (P3){0.0, 0.0, -20.0};
+  const P3 look_at = (P3){0.0, 0.0, 0.0};
+  const V3 view_up = (V3){0.0, 1.0, 0.0};
+  const double vertical_field_of_view = 40.0;
+  const double aperture = 0.0;
+  const double focus_length = 10.0;
+  const double time_start = 0.0;
+  const double time_finish = 1.0;
+
+  const Camera *p_camera =
+      camera__build(p_memory_arena, look_from, look_at, view_up, vertical_field_of_view,
+                    p_scene->aspect_ratio, aperture, focus_length, time_start, time_finish);
+
+  p_scene->p_camera = p_camera;
+
+  // NOTE - Hittables
+
+  const Texture *p_sun_texture = texture__image__build(p_memory_arena, "../assets/sun.jpeg");
+  const Material *p_sun_material = material__diffuse_light__build(p_memory_arena, p_sun_texture);
+  const Hittable *p_sun_hittable =
+      hittable__sphere__build(p_memory_arena, (P3){0, 0, 0}, 2.0, p_sun_material);
+
+  const Texture *p_earth_texture = texture__image__build(p_memory_arena, "../assets/earth.jpeg");
+  const Material *p_earth_material = material__lambertian__build(p_memory_arena, p_earth_texture);
+  const Hittable *p_earth_hittable =
+      hittable__sphere__build(p_memory_arena, (P3){5, 0, 0}, 0.5, p_earth_material);
+
+  const int hittable_count = 3;
+  const Hittable **pp_hittables = (const Hittable **)memory_arena__allocate(
+      p_memory_arena, hittable_count * sizeof(Hittable *));
+
+  pp_hittables[0] = p_sun_hittable;
+  pp_hittables[1] = p_earth_hittable;
+
+  const Hittable *p_hittable_bvh = hittable__bounding_volume_hierarchy__build(
+      p_memory_arena, pp_hittables, hittable_count, 0, hittable_count, 0.0, 1.0);
+
+  p_scene->p_hittables = p_hittable_bvh;
+
+  return p_scene;
+}
